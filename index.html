@@ -46,6 +46,17 @@
             margin-bottom: 20px;
         }
 
+        #difficulty-select {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 1em;
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            cursor: pointer;
+        }
+
         #game-board {
             display: grid;
             grid-template-columns: repeat(3, 100px);
@@ -68,10 +79,16 @@
             font-weight: 600;
             color: #333;
         }
-
+        
         .cell:hover {
             transform: scale(1.05);
             background-color: #e0e0e0;
+        }
+
+        .cell.win-cell {
+            background-color: var(--secondary-color);
+            transition: background-color 0.5s ease-in-out;
+            color: var(--background-color);
         }
 
         #status {
@@ -79,6 +96,12 @@
             font-size: 1.5em;
             font-weight: bold;
             color: var(--text-color);
+        }
+
+        #score-board {
+            margin-top: 10px;
+            font-size: 1em;
+            color: #ccc;
         }
 
         #restart-btn {
@@ -102,6 +125,14 @@
 <body>
     <div class="container">
         <h1>Tic-Tac-Toe (Human vs. AI)</h1>
+        <div id="difficulty-menu">
+            <label for="difficulty-select">Select Difficulty:</label>
+            <select id="difficulty-select">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="unbeatable" selected>Unbeatable</option>
+            </select>
+        </div>
         <div id="status">Player X's turn</div>
         <div id="game-board">
             <div class="cell" data-index="0"></div>
@@ -115,12 +146,17 @@
             <div class="cell" data-index="8"></div>
         </div>
         <button id="restart-btn">Restart</button>
+        <div id="score-board">
+            Wins: 0 | Losses: 0 | Draws: 0
+        </div>
     </div>
 
     <script>
         const cells = document.querySelectorAll('.cell');
         const statusText = document.getElementById('status');
         const restartBtn = document.getElementById('restart-btn');
+        const difficultySelect = document.getElementById('difficulty-select');
+        const scoreBoard = document.getElementById('score-board');
         
         const winConditions = [
             [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -131,6 +167,12 @@
         let board = ['', '', '', '', '', '', '', '', ''];
         let currentPlayer = 'X';
         let isGameActive = true;
+        let scores = { wins: 0, losses: 0, draws: 0 };
+        let currentDifficulty = 'unbeatable';
+
+        const updateScoreBoard = () => {
+            scoreBoard.textContent = `Wins: ${scores.wins} | Losses: ${scores.losses} | Draws: ${scores.draws}`;
+        };
 
         const handleCellClick = (e) => {
             const clickedCell = e.target;
@@ -155,26 +197,24 @@
 
         const changePlayer = () => {
             currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-            if (currentPlayer === 'X') {
-                statusText.textContent = `Player ${currentPlayer}'s turn`;
-            } else {
-                statusText.textContent = `AI's turn`;
-            }
+            statusText.textContent = `Player ${currentPlayer}'s turn`;
         };
 
         const checkResult = () => {
             let roundWon = false;
+            let winningCondition = null;
             for (let i = 0; i < winConditions.length; i++) {
-                const winCondition = winConditions[i];
-                const a = board[winCondition[0]];
-                const b = board[winCondition[1]];
-                const c = board[winCondition[2]];
+                const condition = winConditions[i];
+                const a = board[condition[0]];
+                const b = board[condition[1]];
+                const c = board[condition[2]];
 
                 if (a === '' || b === '' || c === '') {
                     continue;
                 }
                 if (a === b && b === c) {
                     roundWon = true;
+                    winningCondition = condition;
                     break;
                 }
             }
@@ -182,33 +222,71 @@
             if (roundWon) {
                 statusText.textContent = `Player ${currentPlayer} wins!`;
                 isGameActive = false;
+                if (currentPlayer === 'X') {
+                    scores.wins++;
+                } else {
+                    scores.losses++;
+                }
+                updateScoreBoard();
+                winningCondition.forEach(index => cells[index].classList.add('win-cell'));
                 return;
             }
 
             if (!board.includes('')) {
                 statusText.textContent = `It's a draw!`;
                 isGameActive = false;
+                scores.draws++;
+                updateScoreBoard();
                 return;
             }
 
             changePlayer();
         };
 
-        // Minimax 演算法，用於確定最佳移動
+        // Simple AI: Randomly selects an empty cell
+        const easyAI = () => {
+            const emptyCells = board.map((cell, index) => cell === '' ? index : null).filter(val => val !== null);
+            if (emptyCells.length > 0) {
+                const randomIndex = Math.floor(Math.random() * emptyCells.length);
+                return emptyCells[randomIndex];
+            }
+            return -1;
+        };
+
+        // Medium AI: Prioritizes blocking opponent, otherwise random
+        const mediumAI = () => {
+            // Check if AI can win
+            for (let i = 0; i < winConditions.length; i++) {
+                const condition = winConditions[i];
+                const [a, b, c] = condition;
+                
+                if (board[a] === 'O' && board[b] === 'O' && board[c] === '') return c;
+                if (board[a] === 'O' && board[c] === 'O' && board[b] === '') return b;
+                if (board[b] === 'O' && board[c] === 'O' && board[a] === '') return a;
+            }
+            // Check if opponent can win and block them
+            for (let i = 0; i < winConditions.length; i++) {
+                const condition = winConditions[i];
+                const [a, b, c] = condition;
+                
+                if (board[a] === 'X' && board[b] === 'X' && board[c] === '') return c;
+                if (board[a] === 'X' && board[c] === 'X' && board[b] === '') return b;
+                if (board[b] === 'X' && board[c] === 'X' && board[a] === '') return a;
+            }
+            // Otherwise, pick a random empty spot
+            return easyAI();
+        };
+
+        // Unbeatable AI (Minimax algorithm)
         const minimax = (newBoard, player) => {
             const availSpots = [];
             for(let i = 0; i < newBoard.length; i++) {
                 if(newBoard[i] === '') availSpots.push(i);
             }
 
-            // 檢查終局狀態
-            if (checkWin(newBoard, 'X')) {
-                return { score: -10 };
-            } else if (checkWin(newBoard, 'O')) {
-                return { score: 10 };
-            } else if (availSpots.length === 0) {
-                return { score: 0 };
-            }
+            if (checkWin(newBoard, 'X')) { return { score: -10 }; } 
+            else if (checkWin(newBoard, 'O')) { return { score: 10 }; } 
+            else if (availSpots.length === 0) { return { score: 0 }; }
 
             const moves = [];
             for (let i = 0; i < availSpots.length; i++) {
@@ -246,11 +324,9 @@
                     }
                 }
             }
-
             return moves[bestMove];
         };
 
-        // 檢查勝利條件的輔助函數
         const checkWin = (boardToCheck, player) => {
             return winConditions.some(condition => {
                 return condition.every(index => {
@@ -261,12 +337,20 @@
 
         const computerMove = () => {
             if (!isGameActive) return;
-            // 使用 minimax 演算法來找到最佳移動
-            const bestMove = minimax(board, 'O');
+            let move = -1;
             
-            if (bestMove && bestMove.index !== undefined) {
-                const cellToUpdate = cells[bestMove.index];
-                updateCell(cellToUpdate, bestMove.index);
+            if (currentDifficulty === 'easy') {
+                move = easyAI();
+            } else if (currentDifficulty === 'medium') {
+                move = mediumAI();
+            } else if (currentDifficulty === 'unbeatable') {
+                const bestMove = minimax(board, 'O');
+                move = bestMove.index;
+            }
+            
+            if (move !== -1) {
+                const cellToUpdate = cells[move];
+                updateCell(cellToUpdate, move);
                 checkResult();
             }
         };
@@ -278,11 +362,21 @@
             statusText.textContent = `Player ${currentPlayer}'s turn`;
             cells.forEach(cell => {
                 cell.textContent = '';
+                cell.classList.remove('win-cell');
             });
+            updateScoreBoard();
         };
+
+        difficultySelect.addEventListener('change', (e) => {
+            currentDifficulty = e.target.value;
+            restartGame();
+        });
 
         cells.forEach(cell => cell.addEventListener('click', handleCellClick));
         restartBtn.addEventListener('click', restartGame);
+
+        // Initialize score board
+        updateScoreBoard();
     </script>
 </body>
 </html>
