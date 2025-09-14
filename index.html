@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe (Human vs. AI)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #3f51b5;
+            --secondary-color: #ff9800;
+            --background-color: #212121;
+            --surface-color: #424242;
+            --text-color: #ffffff;
+            --border-color: #607d8b;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            text-align: center;
+            padding: 30px;
+            background-color: var(--surface-color);
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        h1 {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            border-radius: 10px;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #fff;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3em;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out, background-color 0.2s;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            background-color: #e0e0e0;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        #restart-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            font-size: 1em;
+            font-weight: 600;
+            color: var(--text-color);
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #restart-btn:hover {
+            background-color: #303f9f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tic-Tac-Toe (Human vs. AI)</h1>
+        <div id="status">Player X's turn</div>
+        <div id="game-board">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+        <button id="restart-btn">Restart</button>
+    </div>
+
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const statusText = document.getElementById('status');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        const winConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+        
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X';
+        let isGameActive = true;
+
+        const handleCellClick = (e) => {
+            const clickedCell = e.target;
+            const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+
+            if (board[clickedCellIndex] !== '' || !isGameActive || currentPlayer === 'O') {
+                return;
+            }
+
+            updateCell(clickedCell, clickedCellIndex);
+            checkResult();
+            
+            if (isGameActive) {
+                setTimeout(computerMove, 500);
+            }
+        };
+
+        const updateCell = (cell, index) => {
+            board[index] = currentPlayer;
+            cell.textContent = currentPlayer;
+        };
+
+        const changePlayer = () => {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            if (currentPlayer === 'X') {
+                statusText.textContent = `Player ${currentPlayer}'s turn`;
+            } else {
+                statusText.textContent = `AI's turn`;
+            }
+        };
+
+        const checkResult = () => {
+            let roundWon = false;
+            for (let i = 0; i < winConditions.length; i++) {
+                const winCondition = winConditions[i];
+                const a = board[winCondition[0]];
+                const b = board[winCondition[1]];
+                const c = board[winCondition[2]];
+
+                if (a === '' || b === '' || c === '') {
+                    continue;
+                }
+                if (a === b && b === c) {
+                    roundWon = true;
+                    break;
+                }
+            }
+
+            if (roundWon) {
+                statusText.textContent = `Player ${currentPlayer} wins!`;
+                isGameActive = false;
+                return;
+            }
+
+            if (!board.includes('')) {
+                statusText.textContent = `It's a draw!`;
+                isGameActive = false;
+                return;
+            }
+
+            changePlayer();
+        };
+
+        // Minimax 演算法，用於確定最佳移動
+        const minimax = (newBoard, player) => {
+            const availSpots = [];
+            for(let i = 0; i < newBoard.length; i++) {
+                if(newBoard[i] === '') availSpots.push(i);
+            }
+
+            // 檢查終局狀態
+            if (checkWin(newBoard, 'X')) {
+                return { score: -10 };
+            } else if (checkWin(newBoard, 'O')) {
+                return { score: 10 };
+            } else if (availSpots.length === 0) {
+                return { score: 0 };
+            }
+
+            const moves = [];
+            for (let i = 0; i < availSpots.length; i++) {
+                const move = {};
+                move.index = availSpots[i];
+                newBoard[availSpots[i]] = player;
+
+                if (player === 'O') {
+                    const result = minimax(newBoard, 'X');
+                    move.score = result.score;
+                } else {
+                    const result = minimax(newBoard, 'O');
+                    move.score = result.score;
+                }
+
+                newBoard[availSpots[i]] = '';
+                moves.push(move);
+            }
+
+            let bestMove;
+            if (player === 'O') {
+                let bestScore = -Infinity;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score > bestScore) {
+                        bestScore = moves[i].score;
+                        bestMove = i;
+                    }
+                }
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score < bestScore) {
+                        bestScore = moves[i].score;
+                        bestMove = i;
+                    }
+                }
+            }
+
+            return moves[bestMove];
+        };
+
+        // 檢查勝利條件的輔助函數
+        const checkWin = (boardToCheck, player) => {
+            return winConditions.some(condition => {
+                return condition.every(index => {
+                    return boardToCheck[index] === player;
+                });
+            });
+        };
+
+        const computerMove = () => {
+            if (!isGameActive) return;
+            // 使用 minimax 演算法來找到最佳移動
+            const bestMove = minimax(board, 'O');
+            
+            if (bestMove && bestMove.index !== undefined) {
+                const cellToUpdate = cells[bestMove.index];
+                updateCell(cellToUpdate, bestMove.index);
+                checkResult();
+            }
+        };
+
+        const restartGame = () => {
+            board = ['', '', '', '', '', '', '', '', ''];
+            currentPlayer = 'X';
+            isGameActive = true;
+            statusText.textContent = `Player ${currentPlayer}'s turn`;
+            cells.forEach(cell => {
+                cell.textContent = '';
+            });
+        };
+
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+        restartBtn.addEventListener('click', restartGame);
+    </script>
+</body>
+</html>
